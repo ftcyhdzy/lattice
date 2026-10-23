@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Internal build artifacts (not part of the public repo)
+params.json
+推特资料包/
+gen_brand.py
+_w3i_tree.json

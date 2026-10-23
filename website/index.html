@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lattice — The audit layer for on-chain code</title>
+<meta name="description" content="Lattice is a decentralized AI-audit network for smart contracts on Robinhood Chain. Autonomous audit agents, a white-hat bounty layer, and post-quantum signatures.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#000000; --ink:#e9e9ec; --muted:#8a8a94; --faint:#4b4b55;
+    --cyan:#6fe7ff; --cyan-dim:#2b6f7a; --line:rgba(255,255,255,0.08);
+    --panel:#050507; --mono:'JetBrains Mono',monospace; --sans:'Space Grotesk',system-ui,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-weight:300;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--cyan);color:#000}
+  #fx{position:fixed;inset:0;z-index:0;display:block}
+
+  /* nav */
+  .nav{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:20px clamp(20px,5vw,64px);background:linear-gradient(to bottom,rgba(0,0,0,0.92),rgba(0,0,0,0))}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .mark{width:28px;height:28px;border:1px solid var(--cyan-dim);display:grid;place-items:center}
+  .brand .mark svg{width:18px;height:18px}
+  .brand .word{font-weight:600;letter-spacing:0.22em;font-size:14px}
+  .nav-links{display:flex;align-items:center;gap:26px;font-family:var(--mono);font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted)}
+  .nav-links a{transition:color .2s;padding-bottom:2px;border-bottom:1px solid transparent}
+  .nav-links a:hover{color:var(--cyan)}
+  .nav-links a.on{color:var(--cyan);border-bottom-color:var(--cyan)}
+  .nav .connect{font-family:var(--mono);font-size:11.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--cyan);border:1px solid var(--cyan-dim);background:transparent;padding:10px 18px;cursor:pointer;position:relative;overflow:hidden;transition:color .3s;z-index:1}
+  .nav .connect::after{content:"";position:absolute;inset:0;background:var(--cyan);transform:translateY(101%);transition:transform .3s;z-index:-1}
+  .nav .connect:hover{color:#000}
+  .nav .connect:hover::after{transform:translateY(0)}
+
+  main{position:relative;z-index:1}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,64px)}
+  .page{display:none;padding-top:120px;padding-bottom:60px;min-height:100vh}
+  .page.active{display:block}
+
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:0.26em;text-transform:uppercase;color:var(--cyan);display:flex;align-items:center;gap:14px}
+  .kicker::before{content:"";width:32px;height:1px;background:var(--cyan)}
+  .kicker.alt{color:var(--faint)} .kicker.alt::before{background:var(--faint)}
+  h1{font-size:clamp(56px,11vw,150px);font-weight:500;line-height:0.94;letter-spacing:-0.03em;margin:26px 0 22px}
+  h2{font-size:clamp(28px,4vw,46px);font-weight:400;letter-spacing:-0.02em;line-height:1.08;margin:22px 0 16px}
+  h3{font-size:20px;font-weight:500;margin-bottom:12px}
+  p{line-height:1.75;color:var(--muted);font-size:15.5px;max-width:680px}
+  p b, .lead b{color:var(--ink);font-weight:500}
+  .lead{font-size:clamp(15px,1.9vw,18px);color:var(--muted);max-width:620px;line-height:1.7}
+  .lead b{color:var(--ink)}
+
+  sup{font-family:var(--mono);font-size:9px;color:var(--cyan);vertical-align:super}
+  sup a{color:var(--cyan)}
+
+  .btn{font-family:var(--mono);font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:var(--cyan);border:1px solid var(--cyan-dim);padding:14px 28px;cursor:pointer;background:transparent;position:relative;overflow:hidden;transition:color .3s;z-index:1;display:inline-block}
+  .btn::after{content:"";position:absolute;inset:0;background:var(--cyan);transform:translateY(101%);transition:transform .3s;z-index:-1}
+  .btn:hover{color:#000}
+  .btn:hover::after{transform:translateY(0)}
+  .ghost{font-family:var(--mono);font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);display:inline-flex;align-items:center;gap:8px;transition:color .2s}
+  .ghost:hover{color:var(--cyan)} .ghost::after{content:"→"}
+
+  .cta{display:flex;align-items:center;gap:24px;margin-top:42px;flex-wrap:wrap}
+
+  /* stats */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:60px}
+  .stat{background:var(--panel);padding:30px 28px}
+  .stat .num{font-size:34px;font-weight:500;color:var(--ink);letter-spacing:-0.02em}
+  .stat .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--faint);margin-top:8px;line-height:1.7}
+
+  /* pillars cards */
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:56px}
+  .cell{background:var(--panel);padding:40px 32px;min-height:230px;display:flex;flex-direction:column;text-decoration:none}
+  .cell .idx{font-family:var(--mono);font-size:11px;color:var(--cyan);letter-spacing:0.2em}
+  .cell h3{margin:20px 0 12px}
+  .cell p{font-size:14.5px}
+  .cell .go{font-family:var(--mono);font-size:11px;color:var(--cyan);margin-top:auto;padding-top:18px;letter-spacing:0.14em}
+  .cell:hover{background:#08080c}
+
+  /* network blocks */
+  .block{border:1px solid var(--line);padding:44px 40px;margin-top:28px;background:var(--panel)}
+  .block .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan)}
+  .block h3{font-size:24px;font-weight:500;margin:14px 0 14px}
+  .block p{max-width:820px}
+  .block ul{list-style:none;margin-top:18px;max-width:760px}
+  .block ul li{color:var(--muted);font-size:14.5px;line-height:1.75;padding:6px 0 6px 20px;position:relative}
+  .block ul li::before{content:"—";position:absolute;left:0;color:var(--cyan)}
+
+  /* token table */
+  table{width:100%;border-collapse:collapse;margin-top:34px;font-size:14.5px}
+  th,td{text-align:left;padding:14px 16px;border-bottom:1px solid var(--line)}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--faint);font-weight:400}
+  td{color:var(--muted)}
+  td:first-child{color:var(--ink)}
+  td.num{color:var(--cyan);font-family:var(--mono)}
+
+  /* references */
+  .refs{margin-top:70px;border-top:1px solid var(--line);padding-top:34px}
+  .refs .rh{font-family:var(--mono);font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--faint);margin-bottom:18px}
+  .refs ol{list-style:none;counter-reset:r}
+  .refs li{color:var(--faint);font-size:12.5px;line-height:1.9;padding-left:34px;position:relative;counter-increment:r;max-width:860px}
+  .refs li::before{content:"[" counter(r) "]";position:absolute;left:0;color:var(--cyan);font-family:var(--mono);font-size:11px}
+
+  .note{font-family:var(--mono);font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--faint);margin-top:36px;display:flex;gap:12px;align-items:center}
+  .note .dot{width:5px;height:5px;background:var(--cyan);border-radius:50%;box-shadow:0 0 8px var(--cyan);animation:blink 2s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+  footer{border-top:1px solid var(--line);padding:52px 0 70px;position:relative;z-index:1}
+  footer .row{display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap;align-items:flex-start}
+  footer .mono{font-family:var(--mono);font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--faint);line-height:2.2}
+  footer .mono a:hover{color:var(--cyan)}
+  footer .disc{color:var(--faint);font-size:12px;line-height:1.8;max-width:560px}
+  footer .disc b{color:var(--muted);font-weight:400}
+  .terminal{font-family:var(--mono);color:var(--faint);font-size:11px;margin-top:46px;letter-spacing:0.1em}
+  .terminal .c{color:var(--cyan)}
+
+  /* wallet modal */
+  .modal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);padding:20px}
+  .modal.open{display:flex}
+  .sheet{background:#0a0a0c;border:1px solid var(--line);width:100%;max-width:400px;padding:34px;position:relative}
+  .sheet h4{font-size:15px;font-weight:500;letter-spacing:0.06em;margin-bottom:4px}
+  .sheet .hint{font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:22px}
+  .sheet .close{position:absolute;top:16px;right:18px;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;font-family:var(--mono)}
+  .sheet .close:hover{color:var(--cyan)}
+  .wallet-item{display:flex;align-items:center;gap:14px;width:100%;background:transparent;border:none;padding:12px 10px;cursor:pointer;color:var(--ink);text-align:left;transition:background .2s}
+  .wallet-item:hover{background:rgba(255,255,255,0.04)}
+  .w-icon{width:34px;height:34px;display:grid;place-items:center;flex:0 0 auto}
+  .w-icon img{width:28px;height:28px;object-fit:contain}
+  .w-name{font-size:14.5px;flex:1}
+  .w-tag{font-family:var(--mono);font-size:9.5px;letter-spacing:0.12em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--cyan-dim);color:var(--cyan)}
+  .w-tag.install{border-color:var(--line);color:var(--faint)}
+  .wallet-item.more-toggle .w-icon{font-size:16px;color:var(--muted)}
+
+  #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:#0c0c0f;border:1px solid var(--cyan-dim);color:var(--cyan);font-family:var(--mono);font-size:11.5px;letter-spacing:0.1em;padding:12px 20px;opacity:0;transition:all .3s;z-index:60;pointer-events:none}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media(max-width:860px){
+    .grid3,.stats{grid-template-columns:1fr}
+    .nav-links{display:none}
+    .block{padding:32px 24px}
+  }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+
+<nav class="nav">
+  <div class="brand">
+    <span class="mark"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><g fill="#6fe7ff"><circle cx="8" cy="8" r="3"/><circle cx="8" cy="20" r="3"/><circle cx="8" cy="32" r="3"/><circle cx="8" cy="44" r="3"/><circle cx="8" cy="56" r="3"/><circle cx="20" cy="56" r="3"/><circle cx="32" cy="56" r="3"/><circle cx="44" cy="56" r="3"/><circle cx="56" cy="56" r="3"/></g></svg></span>
+    <span class="word">LATTICE</span>
+  </div>
+  <div class="nav-links" id="navLinks">
+    <a href="#/" data-route="/">Overview</a>
+    <a href="#/network" data-route="/network">Network</a>
+    <a href="#/token" data-route="/token">Token</a>
+    <a href="#/whitepaper" data-route="/whitepaper">Whitepaper</a>
+  </div>
+  <button class="connect" onclick="openWalletModal()">Connect</button>
+</nav>
+
+<main>
+  <!-- ============ HOME ============ -->
+  <section class="page active" id="page-home" data-refs="15,16">
+    <div class="wrap">
+      <div class="kicker">autonomous audit network · robinhood chain</div>
+      <h1>LATTICE</h1>
+      <p class="lead"><b>The audit layer for on-chain code.</b> Autonomous agents verify every deployed contract, white-hat researchers catch what machines miss, and lattice-based signatures keep each attestation post-quantum secure. $LATT settles it all.</p>
+
+      <div class="stats">
+        <div class="stat"><div class="num">Billions</div><div class="lab">lost to smart-contract exploits since 2020 — rug pulls, reentrancy, access-control bugs <sup>[15]</sup><sup>[16]</sup></div></div>
+        <div class="stat"><div class="num">Point-in-time</div><div class="lab">legacy audits go stale the moment an upgrade ships; a clean report today says nothing about tomorrow <sup>[3]</sup></div></div>
+        <div class="stat"><div class="num">Post-quantum</div><div class="lab">attestations signed with lattice-based cryptography, standardized by NIST <sup>[8]</sup><sup>[9]</sup></div></div>
+      </div>
+
+      <div class="grid3">
+        <a class="cell" href="#/network">
+          <div class="idx">01</div><h3>AI audit agents</h3>
+          <p>Continuous static analysis, formal verification, and ML-based vulnerability detection over every deployed contract — not a one-time snapshot.</p>
+          <div class="go">Explore →</div>
+        </a>
+        <a class="cell" href="#/network">
+          <div class="idx">02</div><h3>White-hat bounty</h3>
+          <p>A permissionless bounty market where researchers are paid on-chain for findings that automation misses.</p>
+          <div class="go">Explore →</div>
+        </a>
+        <a class="cell" href="#/network">
+          <div class="idx">03</div><h3>Post-quantum signatures</h3>
+          <p>Lattice-based attestations that stay valid even after the quantum shift.</p>
+          <div class="go">Explore →</div>
+        </a>
+      </div>
+
+      <div class="cta">
+        <a class="btn" href="#/whitepaper">Read the whitepaper</a>
+        <button class="btn" onclick="openWalletModal()">Connect wallet</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NETWORK ============ -->
+  <section class="page" id="page-network" data-refs="1,2,3,4,5,6,7,8,9,10,11,12,13,14">
+    <div class="wrap">
+      <div class="kicker alt">// 02 — the network</div>
+      <h2>Three layers. One settlement.</h2>
+      <p class="lead">Verification is a pipeline: machines cover breadth, humans cover depth, and cryptography makes the result tamper-evident and future-proof.</p>
+
+      <div class="block">
+        <div class="tag">Layer 01 · AI audit agents</div>
+        <h3>Continuous, automated analysis</h3>
+        <p>Every newly deployed contract on Robinhood Chain is pulled into the audit pipeline the moment its bytecode lands. The agent stack combines three families of analysis, each with a decade of published research behind it:</p>
+        <ul>
+          <li><b>Static analysis</b> — control- and data-flow frameworks such as Slither detect reentrancy, unchecked calls, and access-control gaps <sup>[4]</sup>.</li>
+          <li><b>Formal &amp; symbolic methods</b> — tools in the Securify and ZEUS lineage prove safety properties or find violations by symbolic execution <sup>[3]</sup><sup>[5]</sup><sup>[6]</sup>.</li>
+          <li><b>Learning-based detection</b> — graph-neural and deep models, from Devign onward, generalize to vulnerability patterns that rule-based checkers miss <sup>[12]</sup><sup>[13]</sup><sup>[14]</sup>.</li>
+        </ul>
+        <p>The canonical failure mode these tools exist to catch — the 2016 DAO reentrancy — is documented in <i>Making Smart Contracts Smarter</i>, which first formalized the attack class <sup>[1]</sup>.</p>
+      </div>
+
+      <div class="block">
+        <div class="tag">Layer 02 · White-hat bounty</div>
+        <h3>Humans for what machines miss</h3>
+        <p>Automation covers breadth but not depth. <i>MAIAN</i> showed that automated scanners reliably find classes of broken contracts — greedy, prodigal, and suicidal — yet still miss context-dependent logic bugs that a domain expert catches <sup>[2]</sup>.</p>
+        <ul>
+          <li><b>Permissionless submission</b> — any researcher can submit a finding against any escrowed bounty.</li>
+          <li><b>Staked review</b> — findings are validated by staked reviewers, with slashing for dishonest votes.</li>
+          <li><b>On-chain settlement</b> — payouts release from escrow in $LATT the moment a finding is accepted.</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <div class="tag">Layer 03 · Post-quantum attestations</div>
+        <h3>Proofs that survive the quantum shift</h3>
+        <p>The name is literal. Lattice cryptography rests on hard lattice problems — Learning With Errors and its ring variants — first formalized by Regev <sup>[7]</sup> and Micciancio &amp; Regev <sup>[11]</sup>, and traced to the NTRU construction <sup>[10]</sup>. Today it is the backbone of the NIST post-quantum standards:</p>
+        <ul>
+          <li><b>CRYSTALS-Kyber</b> (FIPS 203) for key encapsulation <sup>[8]</sup>.</li>
+          <li><b>CRYSTALS-Dilithium</b> (FIPS 204) for signatures <sup>[9]</sup>.</li>
+        </ul>
+        <p>Lattice signs every audit attestation with this family of schemes, so a proof of safety issued today remains valid against a fault-tolerant quantum adversary tomorrow.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TOKEN ============ -->
+  <section class="page" id="page-token" data-refs="15,16">
+    <div class="wrap">
+      <div class="kicker alt">// 03 — the token</div>
+      <h2>$LATT is the settlement layer.</h2>
+      <p class="lead">$LATT is not a governance token in search of a use case. It is spent, staked, and paid out on every single verification — the token's demand scales with the network's usage.</p>
+
+      <div class="grid3">
+        <div class="cell"><div class="idx">stake</div><h3>Run the network</h3><p>Node operators stake $LATT to run audit agents and earn a share of audit fees. Dishonest attestations are slashed.</p></div>
+        <div class="cell"><div class="idx">spend</div><h3>Pay for audits</h3><p>Protocols settle audit requests in $LATT. A fraction of every scan is burned, creating a sink proportional to usage.</p></div>
+        <div class="cell"><div class="idx">bounty</div><h3>Reward researchers</h3><p>White-hat findings are paid from escrowed bounty pools, denominated and released in $LATT.</p></div>
+      </div>
+
+      <h3 style="margin-top:56px">Planned supply &amp; allocation</h3>
+      <p>Pre-launch design target — no token has been minted. Team and contributor allocations vest over 12–36 months to align incentives with long-term security, not short-term liquidity <sup>[16]</sup>.</p>
+      <table>
+        <tr><th>Pool</th><th>Share</th><th>Notes</th></tr>
+        <tr><td>Node &amp; staking incentives</td><td class="num">40%</td><td>Emitted over ~48 months</td></tr>
+        <tr><td>Ecosystem / audit fund</td><td class="num">25%</td><td>Grants for tooling and research</td></tr>
+        <tr><td>Team</td><td class="num">15%</td><td>12-month cliff, 36-month linear vesting</td></tr>
+        <tr><td>White-hat bounty pool</td><td class="num">10%</td><td>Escrowed, paid on validated findings</td></tr>
+        <tr><td>Early contributors</td><td class="num">5%</td><td>12-month cliff</td></tr>
+        <tr><td>Liquidity</td><td class="num">5%</td><td>Market making and listings</td></tr>
+      </table>
+
+      <div class="note"><i class="dot"></i>No token is live. Nothing on this page is a sale or financial advice.</div>
+    </div>
+  </section>
+
+  <!-- ============ WHITEPAPER ============ -->
+  <section class="page" id="page-whitepaper" data-refs="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16">
+    <div class="wrap">
+      <div class="kicker alt">// whitepaper · v0.1</div>
+      <h2>The audit layer for on-chain code.</h2>
+      <p class="lead">A decentralized verification network for smart contracts on Robinhood Chain.</p>
+
+      <div class="block">
+        <h3>1 · Abstract</h3>
+        <p>Lattice is a decentralized AI-audit network. Autonomous audit agents continuously verify deployed bytecode for vulnerabilities and rug-pull risk; a permissionless white-hat bounty layer rewards researchers who catch what machines miss; and lattice-based post-quantum signatures underpin every attestation. $LATT is the settlement layer — staked by node operators, spent by protocols, paid to bounty hunters.</p>
+      </div>
+      <div class="block">
+        <h3>2 · The problem</h3>
+        <p>Unaudited code drains the chain daily — rug pulls, honeypots, reentrancy, access-control exploits <sup>[15]</sup>. Legacy auditing has three structural limits: it is <b>point-in-time</b> (stale after the next upgrade), <b>slow and expensive</b> (weeks and tens of thousands of dollars, pricing out small protocols), and <b>fragmented</b> (bounties are siloed and underfunded). The gap grows faster than auditors can close it.</p>
+      </div>
+      <div class="block">
+        <h3>3 · The network</h3>
+        <p>Three layers settle into one token. <b>AI audit agents</b> run static, symbolic, and learning-based analysis over every new contract <sup>[3][4][5][12]</sup>. <b>The white-hat bounty layer</b> pays humans for findings automation misses <sup>[2]</sup>. <b>Post-quantum attestations</b> sign results with lattice-based cryptography standardized by NIST <sup>[7][8][9][10][11]</sup>.</p>
+      </div>
+      <div class="block">
+        <h3>4 · Token economics</h3>
+        <p>$LATT is spent on audits (a fraction burned per scan), staked by node operators (slashed on dishonest attestation), and paid to researchers from escrowed bounty pools. See the Token page for the full allocation.</p>
+      </div>
+      <div class="block">
+        <h3>5 · Roadmap</h3>
+        <p><b>Phase 0 — Testnet.</b> Audit-agent MVP scanning testnet deployments; bounty protocol spec. <b>Phase 1 — Mainnet audit beta.</b> Continuous scanning of live contracts; first escrowed bounties. <b>Phase 2 — Open node network.</b> Permissionless staking and a fee market for audit requests. <b>Phase 3 — Post-quantum rollout.</b> Attestations move to lattice-based signatures end-to-end.</p>
+      </div>
+      <div class="block">
+        <h3>6 · Risks &amp; disclaimer</h3>
+        <p>The network's own contracts carry the same risk they audit and will be independently audited before mainnet. AI agents reduce, but do not eliminate, the chance of a missed vulnerability. <b>Lattice is pre-launch: no token has been issued, and nothing here is an offer, a sale, or financial advice.</b> Audit results are informational and do not guarantee safety. Always verify.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="row">
+      <div class="mono">lattice · audit network<br><a href="#">x / @LatticeAudit</a><br><a href="#">docs</a> · <a href="#">github</a></div>
+      <p class="disc"><b>Disclaimer.</b> Lattice is in pre-launch. No token has been issued and nothing on this page constitutes an offer, a sale, or financial advice. Audit results are informational and do not guarantee the safety of any contract. Always verify.</p>
+    </div>
+    <div class="terminal"><span class="c">>>> </span>lattice — verify everything<span class="c"> · </span>nothing left to trust</div>
+  </div>
+</footer>
+
+<!-- wallet modal -->
+<div class="modal" id="walletModal">
+  <div class="sheet">
+    <button class="close" onclick="closeWalletModal()">×</button>
+    <h4>Connect wallet</h4>
+    <div class="hint">select a wallet to join</div>
+    <div id="walletList"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ================= canvas: lattice field ================= */
+const cv=document.getElementById('fx'),cx=cv.getContext('2d');
+let W=0,H=0,DPR=1,cols=0,rows=0;
+const GAP=46;
+let grid=[],walkers=[];
+let scanY=-160,scanSpeed=0.5;
+const mouse={x:-1e4,y:-1e4};
+function build(){
+  cols=Math.max(2,Math.floor((W-GAP*2)/GAP)+1);
+  rows=Math.max(2,Math.floor((H-GAP*2)/GAP)+1);
+  const ox=(W-(cols-1)*GAP)/2, oy=(H-(rows-1)*GAP)/2;
+  grid=[];
+  for(let j=0;j<rows;j++)for(let i=0;i<cols;i++)grid.push({x:ox+i*GAP,y:oy+j*GAP,b:0});
+  walkers=[];
+  const n=Math.min(38,Math.floor((cols*rows)/120)+10);
+  for(let k=0;k<n;k++)walkers.push({i:(Math.random()*cols)|0,j:(Math.random()*rows)|0,trail:[]});
+}
+function resize(){
+  DPR=Math.min(2,window.devicePixelRatio||1);
+  W=window.innerWidth;H=window.innerHeight;
+  cv.width=W*DPR;cv.height=H*DPR;
+  cx.setTransform(DPR,0,0,DPR,0,0);
+  build();
+}
+window.addEventListener('resize',resize);
+window.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;});
+window.addEventListener('mouseleave',()=>{mouse.x=-1e4;mouse.y=-1e4;});
+resize();
+function step(){
+  scanY+=scanSpeed; if(scanY>H+220)scanY=-220;
+  const band=GAP*1.6;
+  for(const p of grid){
+    let b=0;
+    const d=Math.abs(p.y-scanY);
+    if(d<band)b=Math.max(b,1-d/band);
+    const mdx=p.x-mouse.x,mdy=p.y-mouse.y,md=Math.hypot(mdx,mdy);
+    if(md<150)b=Math.max(b,0.85*(1-md/150));
+    p.b=p.b*0.92; if(b>p.b)p.b=b;
+  }
+  for(const w of walkers){
+    const r=Math.random();
+    if(r<0.25&&w.i>0)w.i--;else if(r<0.5&&w.i<cols-1)w.i++;
+    else if(r<0.75&&w.j>0)w.j--;else if(w.j<rows-1)w.j++;
+    const px=grid[w.j*cols+w.i].x, py=grid[w.j*cols+w.i].y;
+    w.trail.push({x:px,y:py});
+    if(w.trail.length>13)w.trail.shift();
+  }
+}
+function draw(){
+  cx.clearRect(0,0,W,H);
+  for(const p of grid){
+    if(p.b>0.02){
+      const a=p.b*0.9;
+      cx.fillStyle='rgba(111,231,255,'+a.toFixed(3)+')';
+      cx.beginPath();cx.arc(p.x,p.y,1+p.b*1.7,0,6.2832);cx.fill();
+      if(p.b>0.5){cx.fillStyle='rgba(111,231,255,0.16)';cx.beginPath();cx.arc(p.x,p.y,4+p.b*3,0,6.2832);cx.fill();}
+    }else{
+      cx.fillStyle='rgba(255,255,255,0.05)';
+      cx.beginPath();cx.arc(p.x,p.y,1,0,6.2832);cx.fill();
+    }
+  }
+  for(const w of walkers){
+    if(w.trail.length<2)continue;
+    cx.strokeStyle='rgba(111,231,255,0.14)';cx.lineWidth=1;
+    cx.beginPath();
+    for(let t=0;t<w.trail.length;t++){const o=w.trail[t];if(t===0)cx.moveTo(o.x,o.y);else cx.lineTo(o.x,o.y);}
+    cx.stroke();
+    const h=w.trail[w.trail.length-1];
+    cx.fillStyle='rgba(159,241,255,0.95)';
+    cx.shadowColor='rgba(111,231,255,0.9)';cx.shadowBlur=12;
+    cx.beginPath();cx.arc(h.x,h.y,2.1,0,6.2832);cx.fill();cx.shadowBlur=0;
+  }
+  if(mouse.x>-1e3){
+    cx.strokeStyle='rgba(111,231,255,0.10)';cx.lineWidth=1;
+    for(const p of grid){
+      const dx=p.x-mouse.x,dy=p.y-mouse.y,d=Math.hypot(dx,dy);
+      if(d<130){cx.globalAlpha=(1-d/130)*0.5;cx.beginPath();cx.moveTo(p.x,p.y);cx.lineTo(mouse.x,mouse.y);cx.stroke();}
+    }
+    cx.globalAlpha=1;
+  }
+  const g=cx.createLinearGradient(0,scanY-2,0,scanY+2);
+  g.addColorStop(0,'rgba(111,231,255,0)');g.addColorStop(0.5,'rgba(111,231,255,0.28)');g.addColorStop(1,'rgba(111,231,255,0)');
+  cx.fillStyle=g;cx.fillRect(0,scanY-1.5,W,3);
+  requestAnimationFrame(loop);
+}
+function loop(){step();draw();}
+requestAnimationFrame(loop);
+
+/* ================= router ================= */
+const REFS={
+  1:"L. Luu, D.-H. Chu, H. Olickel, P. Saxena, and A. Hobor. “Making Smart Contracts Smarter.” Proceedings of the 2016 ACM SIGSAC Conference on Computer and Communications Security (CCS), 2016.",
+  2:"I. Nikolić, A. Kolluri, I. Sergey, P. Saxena, and A. Hobor. “Finding The Greedy, Prodigal, and Suicidal Contracts at Scale.” Proceedings of the 34th Annual Computer Security Applications Conference (ACSAC), 2018.",
+  3:"P. Tsankov, A. Dan, D. Drachsler-Cohen, A. Gervais, F. Bünzli, and M. Vechev. “Securify: Practical Security Analysis of Smart Contracts.” ACM CCS, 2018.",
+  4:"J. Feist, G. Grieco, and A. Groce. “Slither: A Static Analysis Framework for Smart Contracts.” IEEE WETSEB, 2019.",
+  5:"S. Kalra, S. Goel, M. Dhawan, and S. Sharma. “ZEUS: Analyzing Safety of Smart Contracts.” NDSS, 2018.",
+  6:"B. Mueller. “Mythril: Security analysis tool for EVM bytecode.” ConsenSys, 2018.",
+  7:"O. Regev. “On Lattices, Learning with Errors, Random Linear Codes, and Cryptography.” STOC, 2005.",
+  8:"National Institute of Standards and Technology. “FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism Standard (CRYSTALS-Kyber).” 2024.",
+  9:"National Institute of Standards and Technology. “FIPS 204: Module-Lattice-Based Digital Signature Standard (CRYSTALS-Dilithium).” 2024.",
+  10:"J. Hoffstein, J. Pipher, and J. H. Silverman. “NTRU: A Ring-Based Public Key Cryptosystem.” ANTS, 1998.",
+  11:"D. Micciancio and O. Regev. “Lattice-based Cryptography.” Post-Quantum Cryptography, Springer, 2009.",
+  12:"Y. Zhou, S. Liu, J. Siow, X. Du, and Y. Liu. “Devign: Effective Vulnerability Identification by Learning Comprehensive Program Semantics via Graph Neural Networks.” NeurIPS, 2019.",
+  13:"R. Russell, L. Kim, L. Hamilton, T. Lazovich, J. Harer, O. Ozdemir, P. Ellingwood, and M. McConley. “Automated Vulnerability Detection in Source Code Using Deep Representation Learning.” ICMLA, 2018.",
+  14:"S. Chakraborty, R. Krishna, Y. Ding, and B. Ray. “Deep Learning based Vulnerability Detection: Are We There Yet?” IEEE Transactions on Software Engineering, 2021.",
+  15:"REKT Database. “REKT Leaderboard — DeFi exploits.” de.fi/rekt.",
+  16:"Chainalysis. “The Crypto Crime Report.” 2024."
+};
+const PAGES=['/','/network','/token','/whitepaper'];
+function renderRefs(el){
+  const ids=(el.dataset.refs||'').split(',').filter(Boolean);
+  if(!ids.length)return;
+  const d=document.createElement('div');d.className='refs';
+  d.innerHTML='<div class="rh">References</div><ol>'+ids.map(i=>'<li>'+REFS[i]+'</li>').join('')+'</ol>';
+  el.appendChild(d);
+}
+function route(){
+  let h=location.hash.replace(/^#/,'')||'/';
+  if(!PAGES.includes(h))h='/';
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el=document.getElementById('page-'+ (h==='/'?'home':h.slice(1)));
+  if(el){el.classList.add('active'); if(!el.dataset.rendered){renderRefs(el);el.dataset.rendered='1';}}
+  document.querySelectorAll('#navLinks a').forEach(a=>a.classList.toggle('on',a.dataset.route===h));
+  window.scrollTo(0,0);
+}
+window.addEventListener('hashchange',route);
+route();
+
+/* ================= wallet ================= */
+const RH_CHAIN_ID='0x1237';
+const RH_CHAIN={chainId:RH_CHAIN_ID,chainName:'Robinhood Chain',rpcUrls:['https://rpc.mainnet.chain.robinhood.com'],nativeCurrency:{name:'ETH',symbol:'ETH',decimals:18},blockExplorerUrls:['https://explorer.chain.robinhood.com']};
+let wallet={provider:null,account:null,chainId:null};
+function shortAddr(a){return a?a.slice(0,6)+'…'+a.slice(-4):'';}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2600);}
+function walletName(p){
+  if(p.isMetaMask)return'MetaMask';if(p.isRobinhood||p.isRobinhoodWallet)return'Robinhood Wallet';
+  if(p.isPhantom)return'Phantom';
+  if(p.isCoinbaseWallet)return'Coinbase Wallet';if(p.isRabby)return'Rabby Wallet';
+  if(p.isOKExWallet||p.isOkxWallet||p.isOKXWallet)return'OKX Wallet';if(p.isTokenPocket)return'TokenPocket';
+  if(p.isBitKeep||p.isBitgetWallet)return'Bitget Wallet';if(p.isTrust||p.isTrustWallet)return'Trust Wallet';
+  if(p.isBraveWallet)return'Brave Wallet';return'Injected Wallet';
+}
+const eip6963=[];
+window.addEventListener('eip6963:announceProvider',e=>{const d=e.detail;if(!d||!d.provider)return;const nm=(d.info&&d.info.name)||'Wallet';if(!eip6963.some(w=>w.provider===d.provider))eip6963.push({name:nm,icon:(d.info&&d.info.icon)||'',provider:d.provider});});
+window.dispatchEvent(new Event('eip6963:requestProvider'));
+function detectWallets(){
+  const list=[],seen=new Set();
+  for(const w of eip6963){if(seen.has(w.name))continue;seen.add(w.name);list.push({name:w.name,icon:w.icon,provider:w.provider});}
+  const provs=(window.ethereum&&window.ethereum.providers)?window.ethereum.providers:(window.ethereum?[window.ethereum]:[]);
+  for(const p of provs){const n=walletName(p);if(seen.has(n))continue;seen.add(n);list.push({name:n,icon:'',provider:p});}
+  return list;
+}
+const PRIMARY_WALLETS=[
+  {name:'OKX Wallet',icon:'assets/wallets/okx.png',url:'https://www.okx.com/web3',is:p=>!!(p&&(p.isOKExWallet||p.isOkxWallet||p.isOKXWallet))},
+  {name:'MetaMask',icon:'assets/wallets/metamask.svg',url:'https://metamask.io/download/',is:p=>!!(p&&p.isMetaMask)},
+  {name:'Phantom',icon:'assets/wallets/phantom.png',url:'https://phantom.com/download',is:p=>!!(p&&p.isPhantom)}
+];
+const MORE_WALLETS=[
+  {name:'Rabby',icon:'assets/wallets/rabby.svg',url:'https://rabby.io/',is:p=>!!(p&&p.isRabby)},
+  {name:'Coinbase Wallet',icon:'assets/wallets/coinbase.png',url:'https://www.coinbase.com/wallet',is:p=>!!(p&&p.isCoinbaseWallet)},
+  {name:'Trust Wallet',icon:'assets/wallets/trust.svg',url:'https://trustwallet.com/',is:p=>!!(p&&(p.isTrust||p.isTrustWallet))},
+  {name:'Bitget Wallet',icon:'assets/wallets/bitget.png',url:'https://web3.bitget.com/',is:p=>!!(p&&(p.isBitKeep||p.isBitgetWallet))},
+  {name:'Brave Wallet',icon:'assets/wallets/brave.svg',url:'https://brave.com/wallet/',is:p=>!!(p&&p.isBraveWallet)}
+];
+function walletItem(kw,found){
+  const b=document.createElement('button');b.className='wallet-item';
+  const ic=document.createElement('span');ic.className='w-icon';
+  const im=document.createElement('img');im.src=kw.icon;im.alt='';ic.appendChild(im);b.appendChild(ic);
+  const n=document.createElement('span');n.className='w-name';n.textContent=kw.name;b.appendChild(n);
+  if(found){const t=document.createElement('span');t.className='w-tag';t.textContent='Detected';b.appendChild(t);b.onclick=()=>connectProvider(found.provider);}
+  else{const t=document.createElement('span');t.className='w-tag install';t.textContent='Install';b.appendChild(t);b.onclick=()=>window.open(kw.url,'_blank');}
+  return b;
+}
+function openWalletModal(){
+  window.dispatchEvent(new Event('eip6963:requestProvider'));
+  setTimeout(()=>{
+    const installed=detectWallets();
+    const list=document.getElementById('walletList');list.innerHTML='';
+    const used=new Set();
+    PRIMARY_WALLETS.forEach(kw=>{const f=installed.find(w=>kw.is(w.provider)||w.name===kw.name);if(f)used.add(f.provider);list.appendChild(walletItem(kw,f));});
+    const moreBtn=document.createElement('button');moreBtn.className='wallet-item more-toggle';
+    moreBtn.innerHTML='<span class="w-icon">▾</span><span class="w-name">More wallets</span>';
+    moreBtn.onclick=()=>{const m=document.getElementById('moreWallets');const s=m.style.display==='none';m.style.display=s?'block':'none';moreBtn.querySelector('.w-name').textContent=s?'Fewer wallets':'More wallets';};
+    list.appendChild(moreBtn);
+    const moreWrap=document.createElement('div');moreWrap.id='moreWallets';moreWrap.style.display='none';
+    MORE_WALLETS.forEach(kw=>{const f=installed.find(w=>kw.is(w.provider)||w.name===kw.name);if(f)used.add(f.provider);moreWrap.appendChild(walletItem(kw,f));});
+    list.appendChild(moreWrap);
+    document.getElementById('walletModal').classList.add('open');
+  },120);
+}
+function closeWalletModal(){document.getElementById('walletModal').classList.remove('open');}
+document.getElementById('walletModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeWalletModal();});
+async function connectProvider(provider){
+  try{
+    const accs=await provider.request({method:'eth_requestAccounts'});
+    wallet.provider=provider;wallet.account=accs[0];
+    try{wallet.chainId=await provider.request({method:'eth_chainId'});}catch{wallet.chainId=null;}
+    if(wallet.chainId&&wallet.chainId.toLowerCase()!==RH_CHAIN_ID){
+      try{await provider.request({method:'wallet_switchEthereumChain',params:[{chainId:RH_CHAIN_ID}]});}
+      catch(e){if(e&&e.code===4902){try{await provider.request({method:'wallet_addEthereumChain',params:[RH_CHAIN]});}catch{}}}
+      try{wallet.chainId=await provider.request({method:'eth_chainId'});}catch{}
+    }
+    closeWalletModal();
+    toast('Connected '+shortAddr(wallet.account)+' — audit mainnet coming soon');
+  }catch(e){if(e&&e.code===4001)toast('Connection cancelled');else toast('Connection failed');}
+}
+</script>
+</body>
+</html>

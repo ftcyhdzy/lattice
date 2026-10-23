@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" fill="#000000"/>
+  <g fill="#6fe7ff">
+    <!-- L shape: left column -->
+    <circle cx="8" cy="8" r="2.2"/>
+    <circle cx="8" cy="18" r="2.2"/>
+    <circle cx="8" cy="28" r="2.2"/>
+    <circle cx="8" cy="38" r="2.2"/>
+    <circle cx="8" cy="48" r="2.2"/>
+    <circle cx="8" cy="56" r="2.2"/>
+    <!-- L shape: bottom row -->
+    <circle cx="18" cy="56" r="2.2"/>
+    <circle cx="28" cy="56" r="2.2"/>
+    <circle cx="38" cy="56" r="2.2"/>
+    <circle cx="48" cy="56" r="2.2"/>
+    <circle cx="56" cy="56" r="2.2"/>
+  </g>
+  <g fill="#2a2a30">
+    <circle cx="18" cy="8" r="1.6"/>
+    <circle cx="28" cy="8" r="1.6"/>
+    <circle cx="38" cy="8" r="1.6"/>
+    <circle cx="48" cy="8" r="1.6"/>
+    <circle cx="56" cy="8" r="1.6"/>
+    <circle cx="18" cy="18" r="1.6"/>
+    <circle cx="28" cy="18" r="1.6"/>
+    <circle cx="38" cy="18" r="1.6"/>
+    <circle cx="48" cy="18" r="1.6"/>
+    <circle cx="56" cy="18" r="1.6"/>
+    <circle cx="18" cy="28" r="1.6"/>
+    <circle cx="28" cy="28" r="1.6"/>
+    <circle cx="38" cy="28" r="1.6"/>
+    <circle cx="48" cy="28" r="1.6"/>
+    <circle cx="56" cy="28" r="1.6"/>
+    <circle cx="18" cy="38" r="1.6"/>
+    <circle cx="28" cy="38" r="1.6"/>
+    <circle cx="38" cy="38" r="1.6"/>
+    <circle cx="48" cy="38" r="1.6"/>
+    <circle cx="56" cy="38" r="1.6"/>
+    <circle cx="18" cy="48" r="1.6"/>
+    <circle cx="28" cy="48" r="1.6"/>
+    <circle cx="38" cy="48" r="1.6"/>
+    <circle cx="48" cy="48" r="1.6"/>
+    <circle cx="56" cy="48" r="1.6"/>
+  </g>
+</svg>
