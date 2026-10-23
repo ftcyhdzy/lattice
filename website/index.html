@@ -105,6 +105,14 @@
   td{color:var(--muted)}
   td:first-child{color:var(--ink)}
   td.num{color:var(--cyan);font-family:var(--mono)}
+  .ca-card{border:1px solid var(--cyan-dim);padding:22px 26px;margin-top:30px;background:rgba(111,231,255,0.04)}
+  .ca-tag{font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan)}
+  .ca-row{display:flex;align-items:center;gap:16px;margin-top:14px;flex-wrap:wrap}
+  .ca-addr{font-family:var(--mono);font-size:14px;color:var(--ink);word-break:break-all}
+  .ca-copy{font-family:var(--mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--cyan);border:1px solid var(--cyan-dim);background:transparent;padding:8px 16px;cursor:pointer;transition:all .2s}
+  .ca-copy:hover{background:var(--cyan);color:#000}
+  .ca-link{font-family:var(--mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-right:20px}
+  .ca-link:hover{color:var(--cyan)}
 
   /* references */
   .refs{margin-top:70px;border-top:1px solid var(--line);padding-top:34px}
@@ -258,6 +266,17 @@
       <div class="kicker alt">// 03 — the token</div>
       <h2>$LATT is the settlement layer.</h2>
       <p class="lead">$LATT is not a governance token in search of a use case. It is spent, staked, and paid out on every single verification — the token's demand scales with the network's usage.</p>
+
+      <div class="ca-card">
+        <div class="ca-tag">contract · robinhood chain</div>
+        <div class="ca-row">
+          <code class="ca-addr">0x6c09920b876a82693ba1f85d8384999108ea6bab</code>
+          <button class="ca-copy" onclick="copyCA()">copy</button>
+        </div>
+        <div class="ca-row" style="margin-top:10px">
+          <a class="ca-link" href="https://dexscreener.com/robinhood/0x6c09920b876a82693ba1f85d8384999108ea6bab" target="_blank" rel="noopener">chart ↗</a>
+        </div>
+      </div>
 
       <div class="grid3">
         <div class="cell"><div class="idx">stake</div><h3>Run the network</h3><p>Node operators stake $LATT to run audit agents and earn a share of audit fees. Dishonest attestations are slashed.</p></div>
@@ -425,6 +444,12 @@ function draw(){
 }
 function loop(){step();draw();}
 requestAnimationFrame(loop);
+
+function copyCA(){
+  const t="0x6c09920b876a82693ba1f85d8384999108ea6bab";
+  if(navigator.clipboard){navigator.clipboard.writeText(t).then(()=>toast("Contract address copied")).catch(()=>toast(t));}
+  else{toast(t);}
+}
 
 /* ================= router ================= */
 const REFS={
